@@ -31,6 +31,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 
+import static org.elasticsearch.common.io.Streams.copyToStringFromClasspath;
 import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertAcked;
 import static org.hamcrest.Matchers.equalTo;
 
@@ -92,4 +93,72 @@ public class CopyToMapperIntegrationTests extends ElasticsearchIntegrationTest {
                 .endArray();
     }
 
+    /**
+     * From #8483
+     *
+     * DELETE /test
+     PUT /test/
+     {
+         "mappings": {
+            "test": {
+                "dynamic_templates": [
+                    {
+                        "foo": {
+                            "match": "foo*",
+                            "mapping": {
+                                "type": "object",
+                                "properties": {
+                                    "one": {
+                                        "type": "string",
+                                        "copy_to": [
+                                            "{name}.two"
+                                           ]
+                                    },
+                                    "two": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                ]
+            }
+         }
+     }
+
+     Fails with: MapperParsingException[attempt to copy value to non-existing object [foo.two]]
+
+     PUT /test/test/1
+     {
+     "foo": { "one": "bar"}
+     }
+
+     Succeeds and creates the correct mapping
+
+     PUT /test/test/1
+     {
+     "foo": { "three": "bar"}
+     }
+
+     The first request now works correctly:
+
+     PUT /test/test/1
+     {
+     "foo": { "one": "bar"}
+     }
+
+     */
+    @Test
+    public void testCopyToAddsFieldsTooLate() throws Exception {
+        String mapping = copyToStringFromClasspath("/org/elasticsearch/index/mapper/copyto/test-mapping.json");
+        assertAcked(
+                client().admin().indices().prepareCreate("test")
+                        .addMapping("test", mapping)
+        );
+
+        client().prepareIndex("test", "test", Integer.toString(1))
+                .setSource(XContentFactory.jsonBuilder()
+                        .startObject().startObject("foo").field("one", "bar").endObject().endObject()
+                ).get();
+    }
 }

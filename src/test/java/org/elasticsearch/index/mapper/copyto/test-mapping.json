@@ -1,0 +1,25 @@
+{
+  "test": {
+    "dynamic_templates": [
+      {
+        "foo": {
+          "match": "foo*",
+          "mapping": {
+            "type": "object",
+            "properties": {
+              "one": {
+                "type": "string",
+                "copy_to": [
+                  "{name}.two"
+                ]
+              },
+              "two": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}
